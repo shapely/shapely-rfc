@@ -51,13 +51,19 @@ More specifically, this RFC proposes to:
   GEOS geometry objects in a Python extension type.
 * Provide functionality to work with arrays of geometry objects with a familiar
   NumPy array interface, i.e. optimized, vectorized ufuncs for all GEOS
-  operations (note: this still explicitly excludes feature attribute
-  information, which is left to other libraries such as GeoPandas). This adds a
-  required dependency on numpy.
+  operations. This adds a required dependency on numpy.
 * Use the vectorized operations for the implementation of the scalar operations,
   preserving the existing Shapely scalar API.
 * Make some API changes that are partly required and also desirable (e.g.
   regarding mutability of geometries, ctypes interface, etc).
+
+In practice, the above proposal means to fully migrate the PyGEOS code into
+Shapely's core, and refactoring the rest of Shapely on top of that (instead
+of taking PyGEOS as a dependency of Shapely).
+
+Note, although this expands the scope of Shapely to *array* functionality,
+this still explicitly excludes feature attribute information (which is left
+to other libraries such as GeoPandas).
 
 On a practical note, the following workflow is proposed:
 
