@@ -2,7 +2,7 @@ RFC 1: Roadmap for Shapely 2.0
 ==============================
 
 * Request for comments: 1
-* Author:
+* Author: Joris Van den Bossche
 * Date: 2020-04-22
 
 ## Abstract
@@ -21,12 +21,12 @@ Python.
 
 Currently, Shapely only provides an interface for scalar geometry objects. When
 organizing many Shapely geometries in arrays, there is missing functionality for
-vectorized functions (i.e. users have to manually loop over the array to call
+vectorized functions (i.e. users have to loop over the array in Python to call
 the scalar functions/properties) and this also has a large overhead limiting the
 performance of such applications.
 
 Further, Shapely currently wraps the GEOS library using `ctypes`. While being
-a low-barrier way to wrap a C library, this runtime linking also gives overhead
+a low-barrier way to wrap a C library, this runtime linking also entails overhead
 and robustness issues (see below).
 
 Over the last years, effort has been put in improving the performance through
@@ -361,7 +361,7 @@ replaced with `mpoly.geoms[0]` or `for geom in mpoly.geoms: ...`.
 
 TO FILL IN
 
-inconsistencies in emtpy geometries, cfr https://github.com/Toblerity/Shapely/issues/742
+Shapely 1.x is inconsistent in treating empty geometries, cfr https://github.com/Toblerity/Shapely/issues/742.
 
 
 ### Spatial indexing with STRTree
