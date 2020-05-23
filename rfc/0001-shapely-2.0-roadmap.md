@@ -2,7 +2,7 @@ RFC 1: Roadmap for Shapely 2.0
 ==============================
 
 * Request for comments: 1
-* Author: Joris Van den Bossche
+* Author: Joris Van den Bossche, Casper van der Wel
 * Date: 2020-04-22
 
 ## Abstract
