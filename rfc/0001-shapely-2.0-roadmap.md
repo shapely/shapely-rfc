@@ -359,10 +359,97 @@ replaced with `mpoly.geoms[0]` or `for geom in mpoly.geoms: ...`.
 
 ### Empty geometries
 
-TO FILL IN
+There are multiple ways that you can end up with empty geometries:
 
-Shapely 1.x is inconsistent in treating empty geometries, cfr https://github.com/Toblerity/Shapely/issues/742.
+- Manually constructing one (e.g. with ``Polygon()`` or from a mapping
+  representing an empty geometry)
+- Importing from WKT / WKB representation
+- As a result from a spatial operation (e.g. empty intersection)
 
+Shapely 1.x is inconsistent in creating empty geometries between those different
+ways. A small example for an empty Polygon geometry:
+
+```python
+# Method 1: using an empty constructor
+>>> g1 = shapely.geometry.Polygon()
+>>> type(g1)
+<class 'shapely.geometry.polygon.Polygon'>
+>>> g1.geom_type
+GeometryCollection
+>>> g1.wkt
+GEOMETRYCOLLECTION EMPTY
+
+# Method 2: converting from WKT
+>>> g2 = shapely.wkt.loads("POLYGON EMPTY")
+>>> type(g2)
+<class 'shapely.geometry.polygon.Polygon'>
+>>> g2.geom_type
+Polygon
+>>> g2.wkt
+POLYGON EMPTY
+
+# Method 2: result of a spatial operation
+>>> g3 = shapely.geometry.box(0, 0, 1, 1).intersection(shapely.geometry.box(2, 2, 3, 3))
+>>> type(g3)
+<class 'shapely.geometry.polygon.Polygon'>
+>>> g3.geom_type
+Polygon
+>>> g3.wkt
+POLYGON EMPTY
+```
+
+Similar results can be seen for other geometry types. See
+https://github.com/Toblerity/Shapely/issues/742 for more examples.
+
+With Shapely 1.x, we can see that:
+
+- The Python constructor always uses a GeometryCollection for empty geometries.
+  However, GEOS supports empty geometries for other geometry types, as can be
+  seen from the other examples (the empty geometries from WKB/WKT reading and
+  spatial operations are results from calling GEOS).
+- The empty geometry as result of the Python constructor shows an inconsistent
+  state: the Python class indicates it is a "Polygon", but this contradicts the
+  actual stored GEOSGeometry type (GeometryCollection).
+
+It would be good to ensure the above examples return the same empty geometry
+type consistently in all cases. The easiest option for this is to "follow"
+GEOS' behaviour: *using type-specific empty geometries*. Not doing this would
+mean that we would need to add special cases when wrapping all GEOS functions
+that can result in empty geometries, which doesn't seem desirable. Following
+GEOS' behaviour only requires to update the Python constructors to no longer use
+empty GeometryCollection by default for empty geometries. Moreover, this is
+consistent with PostGIS > 2 (older PostGIS versions treated all empty geometries
+as GEOMETRYCOLLECTION EMPTY, but more recent versions support different empty
+geometry types).
+
+**WKB representation of empty points**
+
+There is one additional, special case to consider: the WKB representation of
+empty points (`POINT EMPTY`). This is the only empty geometry type for which
+there is no standardized representation in WKB following the OGC standard. For
+this reason, other software libraries and file formats have adopted the WKB
+representation of "POINT (NaN NaN)" to represent empty points (e.g. PostGIS, R
+`sf` package, GeoPackage file format, ...).
+
+GEOS itself actually reads this WKB blob as POINT EMPTY, but when trying to
+write the resulting empty geometry back to WKB, it refuses to do so ("Empty Points cannot be represented in WKB").
+
+See this [Shapely#742](https://github.com/Toblerity/Shapely/issues/742#issuecomment-508990898)
+comment with some more background on this issue.
+
+For compatibility with other software (PostGIS, sf, etc), and to ensure all
+geometry objects can be pickled using WKB, it seems good for Shapely to make
+the same special case for writing the WKB of empty points.
+
+**Proposal for Shapely 2.0** Follow GEOS behaviour to use type-specific empty
+geometries (empty point, empty linestring, empty polygon, etc). More
+specifically:
+
+- Change the behaviour of the Python constructors (e.g. `Polygon()` to return
+  POLYGON EMPTY instead of GEOMETRYCOLLECTION EMPTY).
+- Deprecate the `shapely.geometry.base.EmptyGeometry` class.
+- Change the `shapely.wkb` writer to use the "POINT (NaN NaN)" WKB to represent
+  "POINT EMPTY".
 
 ### Spatial indexing with STRTree
 
