@@ -357,6 +357,69 @@ This means that code like `mpoly[0]` or `for geom in mpoly: ...` needs to be
 replaced with `mpoly.geoms[0]` or `for geom in mpoly.geoms: ...`.
 
 
+### The array interface and ctypes attribute
+
+Shapely provides an array interface to have easy access to the coordinates as
+for example numpy arrays (
+[docs](https://shapely.readthedocs.io/en/latest/manual.html#numpy-and-python-arrays)).
+A small example:
+
+```python
+>>> line = shapely.geometry.LineString([(0, 0), (1, 1), (2, 2)])
+>>> line.ctypes
+<shapely.geometry.linestring.c_double_Array_6 at 0x7f75261eb740>
+>>> line.array_interface()
+{'version': 3,
+ 'typestr': '<f8',
+ 'data': <shapely.geometry.linestring.c_double_Array_6 at 0x7f752664ae40>,
+ 'shape': (3, 2)}
+>>> np.asarray(line)
+array([[0., 0.],
+       [1., 1.],
+       [2., 2.]])
+```
+
+So more specifically: the `ctypes` attribute is an ctypes array constructed from
+the geometry coordinates. This is exposed in an "array interface" dictionary as
+the `array_interface()` method, and as the `__array_interface__` dunder
+attribute, which is used by numpy to create an array.
+
+This functionality is available for Point, LineString, LinearRing (the
+geometries that are directly backed by a CoordinateSequence) and MultiPoint.
+
+There are some drawbacks / issues with this functionality:
+
+- The current implementation is tied to ctypes (although, technically speaking,
+  it is possible to provide an array interface without ctypes, and it would also
+  be possible to keep exposing this as a ctypes array without using ctypes in
+  the rest of Shapely).
+- The
+  [array interface](https://numpy.org/doc/1.18/reference/arrays.interface.html)
+  and the general
+  [Python buffer protocol](https://docs.python.org/3.8/c-api/buffer.html) is
+  typically meant to share memory. However, this is not the case here: the
+  actual coordinate values of the geometries are copied into the new array, and
+  are not "viewed".
+- In a similar way as having "iterable" geometries (see the previous section),
+  having scalar geometries with an array interface gives difficulties when
+  operating with numpy arrays of geometries and numpy ufuncs.
+- The `coords` attribute already provides a more explicit way to access the
+  coordinates, potentially as a numpy array.
+
+Finally, the current array interface in Shapely provided a way to have access to
+the coordinates as a numpy array without depending on numpy. This restriction is
+not longer present, and we can directly return numpy arrays of coordinates where
+needed.
+
+**Proposal for Shapely 2.0** Deprecate (in 1.8) and remove the `ctypes`
+attribute, the `array_interface()` method, and the `__array_interface__`
+conversion to numpy arrays for the relevant geometries.
+
+Access to the coordinates of a geometry as a numpy array is still available
+through the `coords` attribute (`np.array(line.coords)` will still give the same
+array as `np.array(line)` does now).
+
+
 ### Empty geometries
 
 There are multiple ways that you can end up with empty geometries:
@@ -388,7 +451,7 @@ Polygon
 >>> g2.wkt
 POLYGON EMPTY
 
-# Method 2: result of a spatial operation
+# Method 3: result of a spatial operation
 >>> g3 = shapely.geometry.box(0, 0, 1, 1).intersection(shapely.geometry.box(2, 2, 3, 3))
 >>> type(g3)
 <class 'shapely.geometry.polygon.Polygon'>
@@ -483,11 +546,6 @@ can unexpectedly give a large overhead for situations prepared geoms were used
 unnecessarily (feedback on this in the linked PR is very welcome!). But if we do
 it under the hood, this could also mean that `PreparedGeometry` could be
 deprecated.
-
-### The array interface and ctypes attribute
-
-TO FILL IN
-
 
 ## Considerations
 
